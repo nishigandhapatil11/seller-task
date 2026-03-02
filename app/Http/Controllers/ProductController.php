@@ -12,58 +12,68 @@ use Exception;
 class ProductController extends Controller
 {
     // ================= ADD PRODUCT =================
-    public function addProduct(Request $request)
-    {
-        try {
+public function addProduct(Request $request)
+{
+    DB::beginTransaction();
 
-            if (auth()->user()->role != 'seller') {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Unauthorized Access'
-                ], 403);
-            }
+    try {
 
-            $validator = Validator::make($request->all(), [
-                'product_name' => 'required',
-                'product_description' => 'required',
-                'brands' => 'required|array'
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => false,
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $product = Product::create([
-                'seller_id' => auth()->id(),
-                'product_name' => $request->product_name,
-                'product_description' => $request->product_description
-            ]);
-
-            foreach ($request->brands as $brand) {
-                Brand::create([
-                    'product_id' => $product->id,
-                    'brand_name' => $brand['brand_name'],
-                    'detail' => $brand['detail'],
-                    'image' => $brand['image'],
-                    'price' => $brand['price']
-                ]);
-            }
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Product Created Successfully'
-            ], 201);
-
-        } catch (Exception $e) {
+        if (auth()->user()->role != 'seller') {
             return response()->json([
                 'status' => false,
-                'error' => $e->getMessage()
-            ], 500);
+                'message' => 'Unauthorized Access'
+            ], 403);
         }
+
+        $validator = Validator::make($request->all(), [
+            'product_name' => 'required',
+            'product_description' => 'required',
+            'brands' => 'required|array'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+        // Create Product
+        $product = Product::create([
+            'seller_id' => auth()->id(),
+            'product_name' => $request->product_name,
+            'product_description' => $request->product_description
+        ]);
+
+        // Create Brands
+        foreach ($request->brands as $brand) {
+
+            Brand::create([
+                'product_id' => $product->id,
+                'brand_name' => $brand['brand_name'],
+                'detail' => $brand['detail'],
+                'image' => $brand['image'],
+                'price' => $brand['price']
+            ]);
+        }
+
+        DB::commit(); // ✅ everything successful
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Product Created Successfully'
+        ], 201);
+
+    } catch (Exception $e) {
+
+        DB::rollBack(); // ❌ rollback product + brands
+
+        return response()->json([
+            'status' => false,
+            'error' => $e->getMessage()
+        ], 500);
     }
+}
 
     // ================= PRODUCT LIST =================
     public function productList()
