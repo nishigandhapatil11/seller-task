@@ -129,25 +129,83 @@ public function addProduct(Request $request)
     }
 
     // ================= PRODUCT PDF =================
-    public function productPDF($id)
-    {
-        try {
+public function productPDF($id)
+{
+    try {
 
-            $product = Product::with('brands')
-                ->where('seller_id', auth()->id())
-                ->findOrFail($id);
-
-            $total = $product->brands->sum('price');
-
-            $pdf = PDF::loadView('pdf.product', compact('product', 'total'));
-
-            return $pdf->download('product.pdf');
-
-        } catch (Exception $e) {
+        // ================= STEP 1: Check Authentication =================
+        if (!auth()->check()) {
             return response()->json([
                 'status' => false,
-                'error' => $e->getMessage()
-            ], 500);
+                'step' => 'Auth Check Failed',
+                'message' => 'User not logged in'
+            ], 401);
         }
+
+        // ================= STEP 2: Show Logged-in User =================
+        $user = auth()->user();
+
+        // Uncomment this line if you want to see full user data
+        // dd($user);
+
+        // ================= STEP 3: Check Product Exists =================
+        $productCheck = \App\Product::find($id);
+
+        if (!$productCheck) {
+            return response()->json([
+                'status' => false,
+                'step' => 'Product Not Found in DB',
+                'product_id' => $id
+            ], 404);
+        }
+
+        // ================= STEP 4: Check Seller Match =================
+        if ($productCheck->seller_id != $user->id) {
+            return response()->json([
+                'status' => false,
+                'step' => 'Seller ID Mismatch',
+                'logged_in_user_id' => $user->id,
+                'product_seller_id' => $productCheck->seller_id
+            ], 403);
+        }
+
+        // ================= STEP 5: Load Product With Brands =================
+        $product = \App\Product::with('brands')
+            ->where('seller_id', $user->id)
+            ->where('id', $id)
+            ->first();
+
+        if (!$product) {
+            return response()->json([
+                'status' => false,
+                'step' => 'Final Query Failed'
+            ], 404);
+        }
+
+        // ================= STEP 6: Check Brands =================
+        if ($product->brands->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'step' => 'No Brands Found For This Product'
+            ]);
+        }
+
+        // ================= STEP 7: Calculate Total =================
+        $total = $product->brands->sum('price');
+
+        // ================= STEP 8: Generate PDF =================
+        $pdf = \PDF::loadView('pdf.product', compact('product', 'total'));
+
+        return $pdf->download('product.pdf');
+
+    } catch (\Exception $e) {
+
+        return response()->json([
+            'status' => false,
+            'step' => 'Exception Caught',
+            'error_message' => $e->getMessage(),
+            'line' => $e->getLine()
+        ], 500);
     }
+}
 }
