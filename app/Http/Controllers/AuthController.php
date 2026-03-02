@@ -11,50 +11,36 @@ use Exception;
 class AuthController extends Controller
 {
     // ================= ADMIN LOGIN =================
-    public function adminLogin(Request $request)
-    {
-        try {
+    
+public function adminLogin(Request $request)
+{
+    $user = User::where('email', $request->email)
+                ->where('role', 'admin')
+                ->first();
 
-            $validator = Validator::make($request->all(), [
-                'email' => 'required|email',
-                'password' => 'required'
-            ]);
-
-            if ($validator->fails()) {
-                return response()->json([
-                    'status' => false,
-                    'errors' => $validator->errors()
-                ], 422);
-            }
-
-            $user = User::where('email', $request->email)
-                        ->where('role', 'admin')
-                        ->first();
-
-            if (!$user || !Hash::check($request->password, $user->password)) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Invalid Admin Credentials'
-                ], 401);
-            }
-
-            $token = $user->createToken('AdminToken')->plainTextToken;
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Admin Login Successful',
-                'token' => $token,
-                'role' => $user->role
-            ], 200);
-
-        } catch (Exception $e) {
-            return response()->json([
-                'status' => false,
-                'error' => $e->getMessage()
-            ], 500);
-        }
+    if (!$user) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Admin not found'
+        ], 404);
     }
 
+    if (!Hash::check($request->password, $user->password)) {
+        return response()->json([
+            'status' => false,
+            'message' => 'Password incorrect'
+        ], 401);
+    }
+
+    $token = $user->createToken('admin-token')->plainTextToken;
+
+    return response()->json([
+        'status' => true,
+        'message' => 'Admin Login Successful',
+        'token' => $token,
+        'data' => $user
+    ], 200);
+}
     // ================= SELLER LOGIN =================
     public function sellerLogin(Request $request)
     {
