@@ -8,7 +8,7 @@ use App\Brand;
 use Illuminate\Support\Facades\Validator;
 use Barryvdh\DomPDF\Facade as PDF;
 use Exception;
-
+use Illuminate\Support\Facades\DB;
 class ProductController extends Controller
 {
     // ================= ADD PRODUCT =================
@@ -18,12 +18,12 @@ public function addProduct(Request $request)
 
     try {
 
-        if (auth()->user()->role != 'seller') {
-            return response()->json([
-                'status' => false,
-                'message' => 'Unauthorized Access'
-            ], 403);
-        }
+        // if (auth()->user()->role != 'seller') {
+        //     return response()->json([
+        //         'status' => false,
+        //         'message' => 'Unauthorized Access'
+        //     ], 403);
+        // }
 
         $validator = Validator::make($request->all(), [
             'product_name' => 'required',
